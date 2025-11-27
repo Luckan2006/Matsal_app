@@ -3,6 +3,7 @@ import './app.css'
 import { supabase } from './supabaseClient'
 
 function App() {
+  const [hideFS, setHideFS] = useState(false);
   const [counts, setCounts] = useState({
     one: 0,
     two: 0,
@@ -58,6 +59,7 @@ function App() {
   } else if (elem.msRequestFullscreen) {
     elem.msRequestFullscreen();
   }
+  setHideFS(true);
 }
 
   if (loading) return <h1>Laddar...</h1>
