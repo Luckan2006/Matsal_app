@@ -49,46 +49,28 @@ function App() {
     setCounts(updated)
   }
 
-  const handleReset = async () => {
-    const resetValues = { one: 0, two: 0, three: 0, four: 0 }
-
-    const { error } = await supabase
-      .from('clicks')
-      .update(resetValues)
-      .eq('id', 1)
-
-    if (error) {
-      setError('Kunde inte återställa värdena')
-      return
-    }
-
-    setCounts(resetValues)
-  }
-
   if (loading) return <h1>Laddar...</h1>
 
-  return (
-    <div className="app">
-      <h1 className="title">Varför slängde du maten?</h1>
+return (
+  <div className="app">
+    <h1 className="title">Varför slängde du maten?</h1>
     <div className="grid">
-      <button className="button one" onClick={() => handleClick('one')}>
+      <button className="button" onClick={() => handleClick('one')}>
         Hann inte äta ({counts.one})
       </button>
-      <button className="button two" onClick={() => handleClick('two')}>
+      <button className="button" onClick={() => handleClick('two')}>
         Tog för mycket ({counts.two})
       </button>
-      <button className="button three" onClick={() => handleClick('three')}>
+      <button className="button" onClick={() => handleClick('three')}>
         Ogillade maten ({counts.three})
       </button>
-      <button className="button four" onClick={() => handleClick('four')}>
-       Slängde inte ({counts.four})
+      <button className="button" onClick={() => handleClick('four')}>
+        Slängde inte ({counts.four})
       </button>
     </div>
-      <button style={{ marginTop: 20 }} onClick={handleReset}>
-        Återställ alla värden
-      </button>
-    </div>
-  )
+  </div>
+)
+
 }
 
 export default App
