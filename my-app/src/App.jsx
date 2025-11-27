@@ -69,7 +69,7 @@ function App() {
 
   return (
     <div className="app">
-      <h1>Varför slängde du maten?</h1>
+      <h1 class="title">Varför slängde du maten?</h1>
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
