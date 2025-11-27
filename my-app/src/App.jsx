@@ -69,25 +69,21 @@ function App() {
 
   return (
     <div className="app">
-      <h1 class="title">Varför slängde du maten?</h1>
-
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      <div className="grid">
-        <button onClick={() => handleClick('one')}>
-          Hann inte äta ({counts.one})
-        </button>
-        <button onClick={() => handleClick('two')}>
-          Tog för mycket ({counts.two})
-        </button>
-        <button onClick={() => handleClick('three')}>
-          Ogillade maten ({counts.three})
-        </button>
-        <button onClick={() => handleClick('four')}>
-          Slängde inte ({counts.four})
-        </button>
-      </div>
-
+      <h1 className="title">Varför slängde du maten?</h1>
+    <div className="grid">
+      <button className="button one" onClick={() => handleClick('one')}>
+        Hann inte äta ({counts.one})
+      </button>
+      <button className="button two" onClick={() => handleClick('two')}>
+        Tog för mycket ({counts.two})
+      </button>
+      <button className="button three" onClick={() => handleClick('three')}>
+        Ogillade maten ({counts.three})
+      </button>
+      <button className="button four" onClick={() => handleClick('four')}>
+       Slängde inte ({counts.four})
+      </button>
+    </div>
       <button style={{ marginTop: 20 }} onClick={handleReset}>
         Återställ alla värden
       </button>
