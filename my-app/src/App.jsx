@@ -48,6 +48,17 @@ function App() {
 
     setCounts(updated)
   }
+  function goFullscreen() {
+  const elem = document.documentElement;
+
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.webkitRequestFullscreen) {
+    elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) {
+    elem.msRequestFullscreen();
+  }
+}
 
   if (loading) return <h1>Laddar...</h1>
 
@@ -68,6 +79,9 @@ return (
         Slängde inte ({counts.four})
       </button>
     </div>
+    <button className="fullscreen-btn" onClick={goFullscreen}>
+    Fullscreen
+    </button>
   </div>
 )
 
