@@ -4,7 +4,9 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   width: 100%;
 }
@@ -32,8 +34,8 @@ body {
   font-size: clamp(22px, 3vw, 42px);
   padding: 1vh 2vw;
 
-  background: #2a2a2a; /* ljusare än knappar */
-  color: #ffffff;      /* vit text */
+  background: #2a2a2a;
+  color: #ffffff;
 }
 
 .fullscreen-btn {
@@ -100,9 +102,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   outline: none;
 
-  box-shadow:
-    0 6px 14px rgba(0, 0, 0, 0.6),
-    0 0 0 2px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255, 255, 255, 0.05);
 
   transition: transform 0.1s ease, filter 0.15s ease;
 }
@@ -113,27 +113,23 @@ body {
 }
 
 .button.one {
-  background: #8884d8; /* blå */
+  background: #8884d8;
 }
 
 .button.two {
-  background: #82ca9d; /* grön */
+  background: #82ca9d;
 }
 
 .button.three {
-  background: #ffc658; /* orange */
+  background: #ffc658;
 }
 
 .button.four {
-  background: #ff7f7f; /* röd */
+  background: #ff7f7f;
 }
 
-
-
-@media (min-width: 1100px) and (max-width: 1300px)
-       and (min-height: 1800px) and (max-height: 2100px)
-       and (orientation: portrait) {
-
+@media (min-width: 1100px) and (max-width: 1300px) and (min-height: 1800px) and (max-height: 2100px) and
+  (orientation: portrait) {
   .title {
     font-size: clamp(20px, 2.4vw, 34px);
     padding: 0.8vh 2vw;
@@ -154,14 +150,22 @@ body {
   position: absolute;
   inset: 0;
 
-  background: rgba(30, 30, 30, 0.95); /* mörkgrå, nästan solid */
+  background: rgba(30, 30, 30, 0.95);
   z-index: 9999;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  pointer-events: all; /* blockerar ALLA klick */
+  pointer-events: all; /* blockerar klick när den är synlig */
+
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+.thanks-overlay.fade-out {
+  opacity: 0;
+  pointer-events: none; /* under fade-out ska den inte blocka */
 }
 
 .thanks-text {
@@ -169,5 +173,11 @@ body {
   font-weight: 900;
   color: white;
   letter-spacing: 0.05em;
+
+  transform: scale(1);
+  transition: transform 0.6s ease;
 }
 
+.thanks-overlay.fade-out .thanks-text {
+  transform: scale(0.98);
+}

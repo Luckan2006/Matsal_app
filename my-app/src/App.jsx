@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { supabase } from "./supabaseClient";
 
@@ -10,8 +10,12 @@ export default function App() {
   const [counts, setCounts] = useState({ one: 0, two: 0, three: 0, four: 0 });
   const [hideFS, setHideFS] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showThanks, setShowThanks] = useState(false);
 
+  const [showThanks, setShowThanks] = useState(false);
+  const [thanksFadeOut, setThanksFadeOut] = useState(false);
+
+  const fadeTimerRef = useRef(null);
+  const removeTimerRef = useRef(null);
 
   const day = todayStr();
 
@@ -44,6 +48,13 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+      if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
+    };
+  }, []);
+
   function goFullscreen() {
     const el = document.documentElement;
     if (el.requestFullscreen) el.requestFullscreen();
@@ -51,9 +62,7 @@ export default function App() {
   }
 
   async function persist(updated) {
-    await supabase
-      .from("daily_clicks")
-      .upsert({ day, ...updated }, { onConflict: "day" });
+    await supabase.from("daily_clicks").upsert({ day, ...updated }, { onConflict: "day" });
   }
 
   async function handleClick(key) {
@@ -61,20 +70,33 @@ export default function App() {
     setCounts(updated);
     await persist(updated);
 
-    setShowThanks(true);
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+    if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
 
-    setTimeout(() => {
+    setShowThanks(true);
+    setThanksFadeOut(false);
+
+    const visibleMs = 1200;
+    const fadeMs = 600;
+
+    fadeTimerRef.current = setTimeout(() => {
+      setThanksFadeOut(true);
+    }, visibleMs);
+
+    removeTimerRef.current = setTimeout(() => {
       setShowThanks(false);
-    }, 2000);
+      setThanksFadeOut(false);
+    }, visibleMs + fadeMs);
   }
 
   return (
     <div className="app">
       {showThanks && (
-        <div className="thanks-overlay">
+        <div className={`thanks-overlay ${thanksFadeOut ? "fade-out" : ""}`}>
           <div className="thanks-text">Tack!</div>
         </div>
       )}
+
       {!hideFS && (
         <button className="fullscreen-btn" onClick={goFullscreen}>
           Fullscreen
