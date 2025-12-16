@@ -76,7 +76,7 @@ export default function App() {
     setShowThanks(true);
     setThanksFadeOut(false);
 
-    const visibleMs = 1200;
+    const visibleMs = 1100;
     const fadeMs = 600;
 
     fadeTimerRef.current = setTimeout(() => {
