@@ -1,16 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { supabase } from "./supabaseClient";
+import Login from "./Login";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
 export default function App() {
-  const [counts, setCounts] = useState({ one: 0, two: 0, three: 0, four: 0 });
-  const [hideFS, setHideFS] = useState(false);
+  /* =========================
+     AUTH / KIOSK LOCK
+     ========================= */
+  const [session, setSession] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [authError, setAuthError] = useState(null);
+
+  /* =========================
+     DATA
+     ========================= */
+  const [counts, setCounts] = useState({
+    one: 0,
+    two: 0,
+    three: 0,
+    four: 0,
+  });
   const [loading, setLoading] = useState(true);
 
+  /* =========================
+     UI STATE
+     ========================= */
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
   const [thanksFadeOut, setThanksFadeOut] = useState(false);
 
@@ -19,6 +38,103 @@ export default function App() {
 
   const day = todayStr();
 
+  /* =========================
+     AUTH CHECK
+     ========================= */
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkSession(session) {
+      if (!session?.user) {
+        if (mounted) {
+          setSession(null);
+          setCheckingAuth(false);
+        }
+        return;
+      }
+
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("approved")
+        .eq("id", session.user.id)
+        .single();
+
+      if (error || !profile?.approved) {
+        await supabase.auth.signOut();
+        if (mounted) {
+          setSession(null);
+          setAuthError("Kontot är inte godkänt för kiosk-läge.");
+          setCheckingAuth(false);
+        }
+        return;
+      }
+
+      if (mounted) {
+        setSession(session);
+        setCheckingAuth(false);
+      }
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      checkSession(data.session);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        checkSession(session);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  /* =========================
+     FULLSCREEN STATE
+     ========================= */
+  useEffect(() => {
+    function onFsChange() {
+      const fs =
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement;
+
+      setIsFullscreen(!!fs);
+    }
+
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
+  }, []);
+
+  function goFullscreen() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  }
+
+  /* =========================
+     BLOCK CONTEXT MENU
+     ========================= */
+  useEffect(() => {
+    function preventContextMenu(e) {
+      e.preventDefault();
+    }
+    document.addEventListener("contextmenu", preventContextMenu);
+    return () =>
+      document.removeEventListener("contextmenu", preventContextMenu);
+  }, []);
+
+  /* =========================
+     FETCH DATA
+     ========================= */
   async function fetchToday() {
     setLoading(true);
 
@@ -33,40 +149,20 @@ export default function App() {
   }
 
   useEffect(() => {
-    fetchToday();
-  }, []);
+    if (session) fetchToday();
+  }, [session]);
 
-  useEffect(() => {
-    function onFsChange() {
-      if (document.fullscreenElement) setHideFS(true);
-    }
-    document.addEventListener("fullscreenchange", onFsChange);
-    document.addEventListener("webkitfullscreenchange", onFsChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", onFsChange);
-      document.removeEventListener("webkitfullscreenchange", onFsChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
-      if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
-    };
-  }, []);
-
-  function goFullscreen() {
-    const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen();
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-  }
-
+  /* =========================
+     CLICK HANDLING
+     ========================= */
   async function persist(updated) {
-    await supabase.from("daily_clicks").upsert({ day, ...updated }, { onConflict: "day" });
+    await supabase
+      .from("daily_clicks")
+      .upsert({ day, ...updated }, { onConflict: "day" });
   }
 
   async function handleClick(key) {
-    const updated = { ...counts, [key]: (counts[key] ?? 0) + 1 };
+    const updated = { ...counts, [key]: counts[key] + 1 };
     setCounts(updated);
     await persist(updated);
 
@@ -76,18 +172,21 @@ export default function App() {
     setShowThanks(true);
     setThanksFadeOut(false);
 
-    const visibleMs = 1100;
-    const fadeMs = 600;
-
-    fadeTimerRef.current = setTimeout(() => {
-      setThanksFadeOut(true);
-    }, visibleMs);
-
+    fadeTimerRef.current = setTimeout(
+      () => setThanksFadeOut(true),
+      1100
+    );
     removeTimerRef.current = setTimeout(() => {
       setShowThanks(false);
       setThanksFadeOut(false);
-    }, visibleMs + fadeMs);
+    }, 1700);
   }
+
+  /* =========================
+     RENDER
+     ========================= */
+  if (checkingAuth) return <div className="loading">Laddar…</div>;
+  if (!session) return <Login externalError={authError} />;
 
   return (
     <div className="app">
@@ -97,7 +196,7 @@ export default function App() {
         </div>
       )}
 
-      {!hideFS && (
+      {!isFullscreen && (
         <button className="fullscreen-btn" onClick={goFullscreen}>
           Fullscreen
         </button>
@@ -112,15 +211,12 @@ export default function App() {
           <button className="button one" onClick={() => handleClick("one")}>
             Hann inte äta
           </button>
-
           <button className="button two" onClick={() => handleClick("two")}>
             Tog för mycket
           </button>
-
           <button className="button three" onClick={() => handleClick("three")}>
             Ogillade maten
           </button>
-
           <button className="button four" onClick={() => handleClick("four")}>
             Slängde inte
           </button>
