@@ -167,7 +167,7 @@ button, input, textarea{
   align-items: center;
   justify-content: center;
 
-  pointer-events: all; /* blockerar klick när den är synlig */
+  pointer-events: all;
 
   opacity: 1;
   transition: opacity 0.6s ease;
@@ -175,7 +175,7 @@ button, input, textarea{
 
 .thanks-overlay.fade-out {
   opacity: 0;
-  pointer-events: none; /* under fade-out ska den inte blocka */
+  pointer-events: none;
 }
 
 .thanks-text {

@@ -8,16 +8,11 @@ function todayStr() {
 }
 
 export default function App() {
-  /* =========================
-     AUTH / KIOSK LOCK
-     ========================= */
+
   const [session, setSession] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  /* =========================
-     DATA
-     ========================= */
   const [counts, setCounts] = useState({
     one: 0,
     two: 0,
@@ -26,9 +21,6 @@ export default function App() {
   });
   const [loading, setLoading] = useState(true);
 
-  /* =========================
-     UI STATE
-     ========================= */
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
   const [thanksFadeOut, setThanksFadeOut] = useState(false);
@@ -36,11 +28,6 @@ export default function App() {
   const fadeTimerRef = useRef(null);
   const removeTimerRef = useRef(null);
 
-  const day = todayStr();
-
-  /* =========================
-     AUTH CHECK
-     ========================= */
   useEffect(() => {
     let mounted = true;
 
@@ -91,9 +78,6 @@ export default function App() {
     };
   }, []);
 
-  /* =========================
-     FULLSCREEN STATE
-     ========================= */
   useEffect(() => {
     function onFsChange() {
       const fs =
@@ -120,9 +104,6 @@ export default function App() {
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
   }
 
-  /* =========================
-     BLOCK CONTEXT MENU
-     ========================= */
   useEffect(() => {
     function preventContextMenu(e) {
       e.preventDefault();
@@ -132,16 +113,15 @@ export default function App() {
       document.removeEventListener("contextmenu", preventContextMenu);
   }, []);
 
-  /* =========================
-     FETCH DATA
-     ========================= */
   async function fetchToday() {
     setLoading(true);
+
+    const currentDay = todayStr();
 
     const { data, error } = await supabase
       .from("daily_clicks")
       .select("one, two, three, four")
-      .eq("day", day)
+      .eq("day", currentDay)
       .single();
 
     if (!error && data) setCounts(data);
@@ -152,13 +132,10 @@ export default function App() {
     if (session) fetchToday();
   }, [session]);
 
-  /* =========================
-     CLICK HANDLING
-     ========================= */
   async function persist(updated) {
     await supabase
       .from("daily_clicks")
-      .upsert({ day, ...updated }, { onConflict: "day" });
+      .upsert({ day: todayStr(), ...updated }, { onConflict: "day" });
   }
 
   async function handleClick(key) {
@@ -182,9 +159,6 @@ export default function App() {
     }, 1700);
   }
 
-  /* =========================
-     RENDER
-     ========================= */
   if (checkingAuth) return <div className="loading">Laddar…</div>;
   if (!session) return <Login externalError={authError} />;
 
