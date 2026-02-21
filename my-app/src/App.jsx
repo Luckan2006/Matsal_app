@@ -4,52 +4,82 @@ import "./App.css";
 import Login from "./Login";
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toISOString().split("T")[0];
 }
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
+
   const [fullscreenEnabled, setFullscreenEnabled] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const [counts, setCounts] = useState({
     one: 0,
     two: 0,
     three: 0,
     four: 0,
   });
+
   const [loading, setLoading] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isClicking, setIsClicking] = useState(false);
+
   const [showThanks, setShowThanks] = useState(false);
   const [thanksFadeOut, setThanksFadeOut] = useState(false);
 
   const fadeTimerRef = useRef(null);
   const removeTimerRef = useRef(null);
 
+  const SETTINGS_ID = 1;
+
+  // ──────────────────────────────────────────────
+  // Fetch fullscreen setting from DB (only called on exit or initial load)
+  // ──────────────────────────────────────────────
   const fetchFullscreenStatus = async () => {
-    const { data, error } = await supabase
-      .from("settings")
-      .select("fullscreen_enabled")
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("settings")
+        .select("fullscreen_enabled")
+        .eq("id", SETTINGS_ID)
+        .single();
 
-    if (!error && data) {
-      setFullscreenEnabled(data.fullscreen_enabled);
-    } else {
-      console.error("Error fetching fullscreen status:", error);
+      if (error) {
+        console.error("Error fetching fullscreen status:", error.message);
+        return;
+      }
+
+      setFullscreenEnabled(data?.fullscreen_enabled ?? true);
+    } catch (err) {
+      console.error("Settings fetch failed:", err);
     }
   };
 
-  const updateFullscreenStatus = async (newStatus) => {
-    const {data, error} = await supabase
-      .from("settings")
-      .upsert({ id: 1, fullscreen_enabled: newStatus })
-      .eq("id", 1);
-    
-    if (error) {
-      console.error("Error updating fullscreen status:", error);
+  // ──────────────────────────────────────────────
+  // Update fullscreen setting in DB
+  // ──────────────────────────────────────────────
+  const updateFullscreenStatus = async (enabled) => {
+    try {
+      const { error } = await supabase
+        .from("settings")
+        .upsert(
+          { id: SETTINGS_ID, fullscreen_enabled: enabled },
+          { onConflict: "id" }
+        );
+
+      if (error) {
+        console.error("Failed to save fullscreen setting:", error.message);
+      } else {
+        setFullscreenEnabled(enabled);
+      }
+    } catch (err) {
+      console.error("Update error:", err);
     }
   };
 
+  // ──────────────────────────────────────────────
+  // Auth & session handling + initial fetch
+  // ──────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
 
@@ -81,6 +111,8 @@ export default function App() {
       if (mounted) {
         setSession(session);
         setCheckingAuth(false);
+        // Load initial fullscreen setting once after login
+        fetchFullscreenStatus();
       }
     }
 
@@ -88,11 +120,9 @@ export default function App() {
       checkSession(data.session);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        checkSession(session);
-      }
-    );
+    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
+      checkSession(session);
+    });
 
     return () => {
       mounted = false;
@@ -100,54 +130,123 @@ export default function App() {
     };
   }, []);
 
+  // ──────────────────────────────────────────────
+  // Fullscreen change detection + DB refresh on exit
+  // ──────────────────────────────────────────────
   useEffect(() => {
-    function onFsChange() {
-      const fs =
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement;
+    const onFsChange = () => {
+      const nowInFs = !!document.fullscreenElement;
+      setIsFullscreen(nowInFs);
 
-      setIsFullscreen(!!fs);
-    }
+      // When exiting fullscreen → re-check real DB value
+      if (!nowInFs) {
+        fetchFullscreenStatus();
+      }
+    };
 
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
+    document.addEventListener("mozfullscreenchange", onFsChange);
+    document.addEventListener("MSFullscreenChange", onFsChange);
 
     return () => {
       document.removeEventListener("fullscreenchange", onFsChange);
       document.removeEventListener("webkitfullscreenchange", onFsChange);
+      document.removeEventListener("mozfullscreenchange", onFsChange);
+      document.removeEventListener("MSFullscreenChange", onFsChange);
     };
   }, []);
 
-  function goFullscreen() {
-    const el = document.documentElement;
-    if (el.requestFullscreen) el.requestFullscreen();
-    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  // ──────────────────────────────────────────────
+  // Enter / Exit fullscreen
+  // ──────────────────────────────────────────────
+  const goFullscreen = async () => {
+    const elem = document.documentElement;
 
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock("portrait");
+    try {
+      const options = { navigationUI: "hide" };
+
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen(options);
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+      } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+      }
+
+      // Optional: try to lock orientation (works on many tablets)
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock("landscape").catch(() => {});
+      }
+
+      await updateFullscreenStatus(true);
+    } catch (err) {
+      console.warn("Could not enter fullscreen:", err);
+    }
+  };
+
+  const exitFullscreen = async () => {
+    try {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        await document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        await document.msExitFullscreen();
+      }
+      // DB is re-fetched automatically via the fullscreenchange listener
+    } catch (err) {
+      console.warn("Could not exit fullscreen:", err);
+    }
+  };
+
+  // ──────────────────────────────────────────────
+  // Load today's counts
+  // ──────────────────────────────────────────────
+  const fetchToday = async () => {
+    setLoading(true);
+    const day = todayStr();
+
+    const { data, error } = await supabase
+      .from("daily_clicks")
+      .select("one, two, three, four")
+      .eq("day", day)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error loading today's counts:", error.message);
+    } else if (data) {
+      setCounts(data);
+    } else {
+      setCounts({ one: 0, two: 0, three: 0, four: 0 });
     }
 
-    updateFullscreenStatus(true);
-  }
+    setLoading(false);
+  };
 
-  function exitFullscreen() {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
+  useEffect(() => {
+    if (session) {
+      fetchToday();
     }
+  }, [session]);
 
-    updateFullscreenStatus(false);
-  }
+  // ──────────────────────────────────────────────
+  // Handle food-waste button clicks (no fullscreen check here)
+  // ──────────────────────────────────────────────
+  const handleClick = async (key) => {
+    if (isClicking) return;
+    setIsClicking(true);
 
-  async function handleClick(key) {
     const updated = { ...counts, [key]: counts[key] + 1 };
     setCounts(updated);
-    await persist(updated);
 
-    await fetchFullscreenStatus();
+    try {
+      await supabase
+        .from("daily_clicks")
+        .upsert({ day: todayStr(), ...updated }, { onConflict: "day" });
+    } catch (err) {
+      console.error("Failed to save click:", err);
+    }
 
     if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
     if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
@@ -155,41 +254,18 @@ export default function App() {
     setShowThanks(true);
     setThanksFadeOut(false);
 
-    fadeTimerRef.current = setTimeout(
-      () => setThanksFadeOut(true),
-      1100
-    );
+    fadeTimerRef.current = setTimeout(() => setThanksFadeOut(true), 1100);
     removeTimerRef.current = setTimeout(() => {
       setShowThanks(false);
       setThanksFadeOut(false);
     }, 1700);
-  }
 
-  async function fetchToday() {
-    setLoading(true);
+    setTimeout(() => setIsClicking(false), 800);
+  };
 
-    const currentDay = todayStr();
-
-    const { data, error } = await supabase
-      .from("daily_clicks")
-      .select("one, two, three, four")
-      .eq("day", currentDay)
-      .single();
-
-    if (!error && data) setCounts(data);
-    setLoading(false);
-  }
-
-  useEffect(() => {
-    if (session) fetchToday();
-  }, [session]);
-
-  async function persist(updated) {
-    await supabase
-      .from("daily_clicks")
-      .upsert({ day: todayStr(), ...updated }, { onConflict: "day" });
-  }
-
+  // ──────────────────────────────────────────────
+  // Render
+  // ──────────────────────────────────────────────
   if (checkingAuth) return <div className="loading">Laddar…</div>;
   if (!session) return <Login externalError={authError} />;
 
@@ -203,13 +279,13 @@ export default function App() {
 
       {!isFullscreen && fullscreenEnabled && (
         <button className="fullscreen-btn" onClick={goFullscreen}>
-          Fullscreen
+          Helskärm
         </button>
       )}
 
-      {isFullscreen && fullscreenEnabled && (
-        <button className="fullscreen-btn" onClick={exitFullscreen}>
-          Exit Fullscreen
+      {isFullscreen && (
+        <button className="fullscreen-btn exit" onClick={exitFullscreen}>
+          Avsluta helskärm
         </button>
       )}
 
