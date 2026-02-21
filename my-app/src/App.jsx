@@ -237,6 +237,8 @@ export default function App() {
     if (isClicking) return;
     setIsClicking(true);
 
+    fetchFullscreenStatus(); // Ensure we have the latest fullscreen setting from DB
+
     const updated = { ...counts, [key]: counts[key] + 1 };
     setCounts(updated);
 
