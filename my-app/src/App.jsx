@@ -12,9 +12,6 @@ export default function App() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
 
-  const [fullscreenEnabled, setFullscreenEnabled] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
   const [counts, setCounts] = useState({
     one: 0,
     two: 0,
@@ -31,54 +28,8 @@ export default function App() {
   const fadeTimerRef = useRef(null);
   const removeTimerRef = useRef(null);
 
-  const SETTINGS_ID = 1;
-
   // ──────────────────────────────────────────────
-  // Fetch fullscreen setting from DB (only called on exit or initial load)
-  // ──────────────────────────────────────────────
-  const fetchFullscreenStatus = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("settings")
-        .select("fullscreen_enabled")
-        .eq("id", SETTINGS_ID)
-        .single();
-
-      if (error) {
-        console.error("Error fetching fullscreen status:", error.message);
-        return;
-      }
-
-      setFullscreenEnabled(data?.fullscreen_enabled ?? true);
-    } catch (err) {
-      console.error("Settings fetch failed:", err);
-    }
-  };
-
-  // ──────────────────────────────────────────────
-  // Update fullscreen setting in DB
-  // ──────────────────────────────────────────────
-  const updateFullscreenStatus = async (enabled) => {
-    try {
-      const { error } = await supabase
-        .from("settings")
-        .upsert(
-          { id: SETTINGS_ID, fullscreen_enabled: enabled },
-          { onConflict: "id" }
-        );
-
-      if (error) {
-        console.error("Failed to save fullscreen setting:", error.message);
-      } else {
-        setFullscreenEnabled(enabled);
-      }
-    } catch (err) {
-      console.error("Update error:", err);
-    }
-  };
-
-  // ──────────────────────────────────────────────
-  // Auth & session handling + initial fetch
+  // Auth & session handling
   // ──────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
@@ -111,8 +62,6 @@ export default function App() {
       if (mounted) {
         setSession(session);
         setCheckingAuth(false);
-        // Load initial fullscreen setting once after login
-        fetchFullscreenStatus();
       }
     }
 
@@ -129,76 +78,6 @@ export default function App() {
       listener.subscription.unsubscribe();
     };
   }, []);
-
-  // ──────────────────────────────────────────────
-  // Fullscreen change detection + DB refresh on exit
-  // ──────────────────────────────────────────────
-  useEffect(() => {
-    const onFsChange = () => {
-      const nowInFs = !!document.fullscreenElement;
-      setIsFullscreen(nowInFs);
-
-      // When exiting fullscreen → re-check real DB value
-      if (!nowInFs) {
-        fetchFullscreenStatus();
-      }
-    };
-
-    document.addEventListener("fullscreenchange", onFsChange);
-    document.addEventListener("webkitfullscreenchange", onFsChange);
-    document.addEventListener("mozfullscreenchange", onFsChange);
-    document.addEventListener("MSFullscreenChange", onFsChange);
-
-    return () => {
-      document.removeEventListener("fullscreenchange", onFsChange);
-      document.removeEventListener("webkitfullscreenchange", onFsChange);
-      document.removeEventListener("mozfullscreenchange", onFsChange);
-      document.removeEventListener("MSFullscreenChange", onFsChange);
-    };
-  }, []);
-
-  // ──────────────────────────────────────────────
-  // Enter / Exit fullscreen
-  // ──────────────────────────────────────────────
-  const goFullscreen = async () => {
-    const elem = document.documentElement;
-
-    try {
-      const options = { navigationUI: "hide" };
-
-      if (elem.requestFullscreen) {
-        await elem.requestFullscreen(options);
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-      } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-      }
-
-      // Optional: try to lock orientation (works on many tablets)
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock("landscape").catch(() => {});
-      }
-
-      await updateFullscreenStatus(true);
-    } catch (err) {
-      console.warn("Could not enter fullscreen:", err);
-    }
-  };
-
-  const exitFullscreen = async () => {
-    try {
-      if (document.exitFullscreen) {
-        await document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        await document.webkitExitFullscreen();
-      } else if (document.msExitFullscreen) {
-        await document.msExitFullscreen();
-      }
-      // DB is re-fetched automatically via the fullscreenchange listener
-    } catch (err) {
-      console.warn("Could not exit fullscreen:", err);
-    }
-  };
 
   // ──────────────────────────────────────────────
   // Load today's counts
@@ -231,13 +110,11 @@ export default function App() {
   }, [session]);
 
   // ──────────────────────────────────────────────
-  // Handle food-waste button clicks (no fullscreen check here)
+  // Handle food-waste button clicks
   // ──────────────────────────────────────────────
   const handleClick = async (key) => {
     if (isClicking) return;
     setIsClicking(true);
-
-    fetchFullscreenStatus(); // Ensure we have the latest fullscreen setting from DB
 
     const updated = { ...counts, [key]: counts[key] + 1 };
     setCounts(updated);
@@ -277,18 +154,6 @@ export default function App() {
         <div className={`thanks-overlay ${thanksFadeOut ? "fade-out" : ""}`}>
           <div className="thanks-text">Tack!</div>
         </div>
-      )}
-
-      {!isFullscreen && fullscreenEnabled && (
-        <button className="fullscreen-btn" onClick={goFullscreen}>
-          Helskärm
-        </button>
-      )}
-
-      {isFullscreen && (
-        <button className="fullscreen-btn exit" onClick={exitFullscreen}>
-          Avsluta helskärm
-        </button>
       )}
 
       <h1 className="title">Varför slängde du maten?</h1>

@@ -68,34 +68,6 @@ body {
 }
 
 /* ============================================= */
-/* FULLSCREEN BUTTONS                            */
-/* ============================================= */
-
-.fullscreen-btn {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-
-  padding: 0.6rem 1rem;
-  border: none;
-  border-radius: 0.6rem;
-
-  background: #5c5c5c;
-  color: #000;
-  font-weight: 700;
-
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  z-index: 1000;
-}
-
-.fullscreen-btn.exit {
-  background: #ff4444;
-  color: white;
-}
-
-/* ============================================= */
 /* LOADING STATE                                 */
 /* ============================================= */
 
