@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import "./App.css";
 import { supabase } from "./supabaseClient";
+import "./App.css";
 import Login from "./Login";
 
 function todayStr() {
@@ -8,11 +8,10 @@ function todayStr() {
 }
 
 export default function App() {
-
   const [session, setSession] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authError, setAuthError] = useState(null);
-
+  const [fullscreenEnabled, setFullscreenEnabled] = useState(true);
   const [counts, setCounts] = useState({
     one: 0,
     two: 0,
@@ -20,13 +19,36 @@ export default function App() {
     four: 0,
   });
   const [loading, setLoading] = useState(true);
-
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
   const [thanksFadeOut, setThanksFadeOut] = useState(false);
 
   const fadeTimerRef = useRef(null);
   const removeTimerRef = useRef(null);
+
+  const fetchFullscreenStatus = async () => {
+    const { data, error } = await supabase
+      .from("settings")
+      .select("fullscreen_enabled")
+      .single();
+
+    if (!error && data) {
+      setFullscreenEnabled(data.fullscreen_enabled);
+    } else {
+      console.error("Error fetching fullscreen status:", error);
+    }
+  };
+
+  const updateFullscreenStatus = async (newStatus) => {
+    const {data, error} = await supabase
+      .from("settings")
+      .upsert({ id: 1, fullscreen_enabled: newStatus })
+      .eq("id", 1);
+    
+    if (error) {
+      console.error("Error updating fullscreen status:", error);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -102,16 +124,46 @@ export default function App() {
     const el = document.documentElement;
     if (el.requestFullscreen) el.requestFullscreen();
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock("portrait");
+    }
+
+    updateFullscreenStatus(true);
   }
 
-  useEffect(() => {
-    function preventContextMenu(e) {
-      e.preventDefault();
+  function exitFullscreen() {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
     }
-    document.addEventListener("contextmenu", preventContextMenu);
-    return () =>
-      document.removeEventListener("contextmenu", preventContextMenu);
-  }, []);
+
+    updateFullscreenStatus(false);
+  }
+
+  async function handleClick(key) {
+    const updated = { ...counts, [key]: counts[key] + 1 };
+    setCounts(updated);
+    await persist(updated);
+
+    await fetchFullscreenStatus();
+
+    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+    if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
+
+    setShowThanks(true);
+    setThanksFadeOut(false);
+
+    fadeTimerRef.current = setTimeout(
+      () => setThanksFadeOut(true),
+      1100
+    );
+    removeTimerRef.current = setTimeout(() => {
+      setShowThanks(false);
+      setThanksFadeOut(false);
+    }, 1700);
+  }
 
   async function fetchToday() {
     setLoading(true);
@@ -138,27 +190,6 @@ export default function App() {
       .upsert({ day: todayStr(), ...updated }, { onConflict: "day" });
   }
 
-  async function handleClick(key) {
-    const updated = { ...counts, [key]: counts[key] + 1 };
-    setCounts(updated);
-    await persist(updated);
-
-    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
-    if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
-
-    setShowThanks(true);
-    setThanksFadeOut(false);
-
-    fadeTimerRef.current = setTimeout(
-      () => setThanksFadeOut(true),
-      1100
-    );
-    removeTimerRef.current = setTimeout(() => {
-      setShowThanks(false);
-      setThanksFadeOut(false);
-    }, 1700);
-  }
-
   if (checkingAuth) return <div className="loading">Laddar…</div>;
   if (!session) return <Login externalError={authError} />;
 
@@ -170,9 +201,15 @@ export default function App() {
         </div>
       )}
 
-      {!isFullscreen && (
+      {!isFullscreen && fullscreenEnabled && (
         <button className="fullscreen-btn" onClick={goFullscreen}>
           Fullscreen
+        </button>
+      )}
+
+      {isFullscreen && fullscreenEnabled && (
+        <button className="fullscreen-btn" onClick={exitFullscreen}>
+          Exit Fullscreen
         </button>
       )}
 
