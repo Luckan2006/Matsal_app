@@ -29,6 +29,7 @@ export default function App() {
 
   const fadeTimerRef = useRef(null);
   const removeTimerRef = useRef(null);
+  const activeDayRef = useRef(null);
 
   // ──────────────────────────────────────────────
   // Auth & session handling
@@ -101,6 +102,12 @@ export default function App() {
   const fetchToday = async () => {
     setLoading(true);
     const day = todayStr();
+
+    if (activeDayRef.current && activeDayRef.current !== day) {
+      setTodayFood(null);
+      fetchTodayFood();
+    }
+    activeDayRef.current = day;
 
     const { data, error } = await supabase
       .from("daily_clicks")
