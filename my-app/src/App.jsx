@@ -22,6 +22,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isClicking, setIsClicking] = useState(false);
 
+  const [todayFood, setTodayFood] = useState(null);
+
   const [showThanks, setShowThanks] = useState(false);
   const [thanksFadeOut, setThanksFadeOut] = useState(false);
 
@@ -80,6 +82,38 @@ export default function App() {
   }, []);
 
   // ──────────────────────────────────────────────
+  // Fetch today's school menu from Skolmaten RSS
+  // ──────────────────────────────────────────────
+  const fetchTodayFood = async () => {
+    const rssUrl = "https://skolmaten.se/sven-eriksonsgymnasiet";
+    const attempts = [
+      () => fetch(rssUrl).then((r) => r.text()),
+      () =>
+        fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`)
+          .then((r) => r.json())
+          .then((j) => j.contents),
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        const text = await attempt();
+        const xml = new DOMParser().parseFromString(text, "text/xml");
+        if (xml.querySelector("parsererror")) continue;
+        for (const item of xml.querySelectorAll("item")) {
+          const desc = item.querySelector("description")?.textContent || "";
+          if (desc && desc !== "Ingen meny för idag") {
+            setTodayFood(desc);
+            return;
+          }
+        }
+        return; // valid RSS but no menu today (weekend/holiday)
+      } catch {
+        // try next
+      }
+    }
+  };
+
+  // ──────────────────────────────────────────────
   // Load today's counts
   // ──────────────────────────────────────────────
   const fetchToday = async () => {
@@ -106,6 +140,7 @@ export default function App() {
   useEffect(() => {
     if (session) {
       fetchToday();
+      fetchTodayFood();
     }
   }, [session]);
 
@@ -120,9 +155,11 @@ export default function App() {
     setCounts(updated);
 
     try {
+      const payload = { day: todayStr(), ...updated };
+      if (todayFood) payload.food = todayFood;
       await supabase
         .from("daily_clicks")
-        .upsert({ day: todayStr(), ...updated }, { onConflict: "day" });
+        .upsert(payload, { onConflict: "day" });
     } catch (err) {
       console.error("Failed to save click:", err);
     }
