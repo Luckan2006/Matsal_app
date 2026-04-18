@@ -85,31 +85,13 @@ export default function App() {
   // Fetch today's school menu from Skolmaten RSS
   // ──────────────────────────────────────────────
   const fetchTodayFood = async () => {
-    const rssUrl = "https://skolmaten.se/sven-eriksonsgymnasiet";
-    const attempts = [
-      () => fetch(rssUrl).then((r) => r.text()),
-      () =>
-        fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`)
-          .then((r) => r.json())
-          .then((j) => j.contents),
-    ];
-
-    for (const attempt of attempts) {
-      try {
-        const text = await attempt();
-        const xml = new DOMParser().parseFromString(text, "text/xml");
-        if (xml.querySelector("parsererror")) continue;
-        for (const item of xml.querySelectorAll("item")) {
-          const desc = item.querySelector("description")?.textContent || "";
-          if (desc && desc !== "Ingen meny för idag") {
-            setTodayFood(desc);
-            return;
-          }
-        }
-        return; // valid RSS but no menu today (weekend/holiday)
-      } catch {
-        // try next
-      }
+    try {
+      const { data, error } = await supabase.functions.invoke("skolmaten-menu");
+      if (error) throw error;
+      const first = data?.items?.[0];
+      if (first?.description) setTodayFood(first.description);
+    } catch {
+      // menu fetch failed silently — clicks still save normally
     }
   };
 
