@@ -89,8 +89,9 @@ export default function App() {
     try {
       const { data, error } = await supabase.functions.invoke("skolmaten-menu");
       if (error) throw error;
-      const first = data?.items?.[0];
-      if (first?.description) setTodayFood(first.description);
+      const today = new Date().toISOString().slice(0, 10);
+      const todayItem = data?.items?.find((item) => item.date === today) ?? data?.items?.[0];
+      if (todayItem?.description) setTodayFood(todayItem.description);
     } catch {
       // menu fetch failed silently — clicks still save normally
     }
