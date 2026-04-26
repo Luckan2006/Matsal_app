@@ -135,17 +135,50 @@ export default function App() {
   }, [session]);
 
   // ──────────────────────────────────────────────
+  // Midnight reset — re-fetch at 00:00 local time
+  // ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!session) return;
+
+    let timer;
+
+    function scheduleMidnightReset() {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(24, 0, 0, 0); // next local midnight
+      timer = setTimeout(() => {
+        fetchToday();
+        fetchTodayFood();
+        scheduleMidnightReset();
+      }, next - now);
+    }
+
+    scheduleMidnightReset();
+    return () => clearTimeout(timer);
+  }, [session]);
+
+  // ──────────────────────────────────────────────
   // Handle food-waste button clicks
   // ──────────────────────────────────────────────
   const handleClick = async (key) => {
     if (isClicking) return;
     setIsClicking(true);
 
-    const updated = { ...counts, [key]: counts[key] + 1 };
+    const day = todayStr();
+
+    // If the day rolled over before the midnight timer fired, start from 0
+    let base = counts;
+    if (activeDayRef.current !== day) {
+      base = { one: 0, two: 0, three: 0, four: 0 };
+      activeDayRef.current = day;
+      fetchTodayFood();
+    }
+
+    const updated = { ...base, [key]: base[key] + 1 };
     setCounts(updated);
 
     try {
-      const payload = { day: todayStr(), ...updated };
+      const payload = { day, ...updated };
       if (todayFood) payload.food = todayFood;
       await supabase
         .from("daily_clicks")
