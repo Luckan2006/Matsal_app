@@ -31,6 +31,12 @@ export default function App() {
   const removeTimerRef = useRef(null);
   const activeDayRef = useRef(null);
 
+  // ── FIX: ref that always holds the latest counts synchronously ──
+  const countsRef = useRef(counts);
+  useEffect(() => {
+    countsRef.current = counts;
+  }, [counts]);
+
   // ──────────────────────────────────────────────
   // Auth & session handling
   // ──────────────────────────────────────────────
@@ -120,8 +126,11 @@ export default function App() {
       console.error("Error loading today's counts:", error.message);
     } else if (data) {
       setCounts(data);
+      countsRef.current = data; // keep ref in sync after fetch
     } else {
-      setCounts({ one: 0, two: 0, three: 0, four: 0 });
+      const empty = { one: 0, two: 0, three: 0, four: 0 };
+      setCounts(empty);
+      countsRef.current = empty; // keep ref in sync after fetch
     }
 
     setLoading(false);
@@ -166,15 +175,20 @@ export default function App() {
 
     const day = todayStr();
 
-    // If the day rolled over before the midnight timer fired, start from 0
-    let base = counts;
+    // If the day rolled over before the midnight timer fired, reset to 0
     if (activeDayRef.current !== day) {
-      base = { one: 0, two: 0, three: 0, four: 0 };
+      const empty = { one: 0, two: 0, three: 0, four: 0 };
+      countsRef.current = empty;
       activeDayRef.current = day;
       fetchTodayFood();
     }
 
+    // ── FIX: read from ref (always up-to-date) instead of stale state ──
+    const base = countsRef.current;
     const updated = { ...base, [key]: base[key] + 1 };
+
+    // Update the ref immediately so the next rapid click sees the new value
+    countsRef.current = updated;
     setCounts(updated);
 
     try {
