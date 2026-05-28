@@ -163,7 +163,6 @@ export default function App() {
   const handleClick = async (key) => {
     if (isClicking) return;
     setIsClicking(true);
-    fetchToday(); // Fetch latest counts of that day before incrementing, to minimize false values
 
     const day = todayStr();
 
