@@ -1,6 +1,6 @@
 # Matsal App
 
-A Swedish-language kiosk web app for tracking food waste at a school cafeteria. Students tap one of four buttons to indicate why they are throwing away food. The data is stored in a shared database and can be viewed in the separate [Admin Dashboard](https://github.com/luckan/Matsal_app_admin).
+A Swedish-language kiosk web app for tracking food waste at a school cafeteria. Students tap one of four buttons to indicate why they are throwing away food. The data is stored in a shared database and can be viewed in the separate [Admin Dashboard](https://github.com/Luckan2006/Matsal_app_admin).
 
 ## What it does
 
@@ -90,7 +90,7 @@ When a button is tapped:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/<your-username>/Matsal_app.git
+   git clone https://github.com/Luckan2006/Matsal_app.git
    cd Matsal_app/my-app
    ```
 
